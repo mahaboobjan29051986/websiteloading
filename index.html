@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apta Cosmetics Store</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+body{
+  margin:0;
+  font-family:Inter;
+  background:#f5f5f5;
+  color:#222;
+}
+header{
+  background:white;
+  padding:15px 30px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  box-shadow:0 2px 10px rgba(0,0,0,0.1);
+  position:sticky;
+  top:0;
+  z-index:999;
+}
+.logo{
+  font-size:1.4rem;
+  font-weight:700;
+  color:#DB2777;
+}
+nav a{
+  margin-left:20px;
+  text-decoration:none;
+  color:#444;
+  font-weight:500;
+  font-size:1rem;
+}
+.top-banner img{
+  width:100%;
+  max-height:420px;
+  object-fit:cover;
+}
+.hero{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:40px;
+  gap:40px;
+  background:white;
+}
+.hero img{
+  width:380px;
+  border-radius:12px;
+}
+.hero-info{
+  max-width:420px;
+}
+.hero-info h1{
+  font-size:2rem;
+}
+.price{
+  font-size:1.8rem;
+  color:#DB2777;
+}
+.shades{
+  display:flex;
+  gap:12px;
+  margin:15px 0;
+}
+.shade{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  cursor:pointer;
+  border:3px solid transparent;
+}
+.shade.selected{
+  border-color:#DB2777;
+}
+.qty{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  margin:15px 0;
+}
+.qty button{
+  padding:8px 14px;
+  background:white;
+  border-radius:6px;
+  border:1px solid #DB2777;
+  color:#DB2777;
+}
+.qty div{
+  width:30px;
+  font-size:1.3rem;
+  text-align:center;
+  font-weight:700;
+}
+.btn{
+  padding:14px;
+  width:100%;
+  border:none;
+  border-radius:8px;
+  font-size:1rem;
+  font-weight:600;
+}
+.primary{
+  background:#DB2777;
+  color:white;
+}
+.secondary{
+  background:white;
+  border:2px solid #DB2777;
+  color:#DB2777;
+}
+.gallery{
+  max-width:1100px;
+  margin:40px auto;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+}
+.gallery img{
+  width:100%;
+  border-radius:14px;
+}
+footer{
+  text-align:center;
+  padding:20px 0;
+  margin-top:40px;
+  color:#666;
+}
+@media (max-width:768px){
+  header{
+    padding:12px 18px;
+  }
+  nav a{
+    font-size:0.85rem;
+    margin-left:12px;
+  }
+  .hero{
+    flex-direction:column;
+    text-align:center;
+    padding:20px;
+    gap:20px;
+  }
+  .hero img{
+    width:80%;
+    max-width:280px;
+  }
+  .hero-info h1{
+    font-size:1.5rem;
+  }
+  .price{
+    font-size:1.5rem;
+  }
+  .shades{
+    justify-content:center;
+  }
+  .qty{
+    justify-content:center;
+  }
+  .gallery{
+    grid-template-columns:1fr;
+    padding:0 15px;
+    gap:12px;
+  }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Apta Cosmetics</div>
+  <nav>
+    <a href="#">Home</a>
+    <a href="#shop">Shop</a>
+    <a href="#gallery">Gallery</a>
+  </nav>
+</header>
+
+<div class="top-banner">
+  <img src="catelogue.jpeg">
+</div>
+
+<section class="hero" id="shop">
+  <img src="pic1.jpeg">
+  <div class="hero-info">
+    <h1>Maliao Liquid Foundation</h1>
+    <div class="price">₹399</div>
+
+    <div class="shades">
+      <div class="shade selected" data-shade="01 White Ivory" style="background:#fff2f0"></div>
+      <div class="shade" data-shade="02 Soft Ivory" style="background:#ffece6"></div>
+      <div class="shade" data-shade="03 Natural Beige" style="background:#fbe7d7"></div>
+      <div class="shade" data-shade="04 Natural Nude" style="background:#f5d3c0"></div>
+    </div>
+
+    <div class="qty">
+      <button id="dec">-</button>
+      <div id="qty">1</div>
+      <button id="inc">+</button>
+    </div>
+
+    <button class="btn primary" id="buy">Buy Now</button>
+    <button class="btn secondary" id="cart">Add to Cart</button>
+  </div>
+</section>
+
+<h2 style="text-align:center;margin-top:40px;">Product Gallery</h2>
+
+<section class="gallery" id="gallery">
+  <img src="pic1.jpeg">
+  <img src="pic2.jpeg">
+  <img src="pic3.jpeg">
+  <img src="pic4.jpeg">
+</section>
+
+<footer>© 2025 Apta Cosmetics</footer>
+
+<script>
+document.querySelectorAll('.shade').forEach(s=>{
+  s.onclick=()=>{
+    document.querySelectorAll('.shade').forEach(x=>x.classList.remove('selected'));
+    s.classList.add('selected');
+  };
+});
+let qty=1;
+document.getElementById("inc").onclick=()=>{qty++;document.getElementById("qty").innerText=qty;}
+document.getElementById("dec").onclick=()=>{if(qty>1){qty--;document.getElementById("qty").innerText=qty;}}
+
+document.getElementById("buy").onclick=()=>{
+  addToCart();
+  window.location="checkout.html";
+};
+document.getElementById("cart").onclick=()=>{
+  addToCart();
+  alert("Added to cart!");
+};
+function addToCart(){
+  const shade=document.querySelector('.shade.selected').dataset.shade;
+  const item={id:'foundation',title:'Maliao Liquid Foundation',price:399,qty:qty,shade};
+  const cart=JSON.parse(localStorage.getItem('cart')||'[]');
+  cart.push(item);
+  localStorage.setItem('cart',JSON.stringify(cart));
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Order Success</title>
+<style>body{font-family:Arial,system-ui;margin:20px;background:#f7f7fb} .card{max-width:760px;margin:24px auto;background:#fff;padding:18px;border-radius:12px;box-shadow:0 8px 28px rgba(2,6,23,0.06)}</style></head>
+<body>
+<div class="card">
+  <h2>Order / Payment Status</h2>
+  <div id="content">Loading...</div>
+  <p style="margin-top:12px"><a href="index.html">Back to shop</a></p>
+</div>
+
+<script>
+(function(){
+  var content = document.getElementById('content');
+  try{
+    var last = JSON.parse(localStorage.getItem('lastPayment') || 'null');
+    if(!last){
+      content.innerHTML = "<p>No recent order found in this browser.</p>";
+      return;
+    }
+    var html = "<p><strong>Order ID:</strong> " + (last.order_id || '—') + "</p>";
+    if(last.item){
+      html += "<p><strong>Product:</strong> " + (last.item.title || '') + " (Qty: " + (last.item.qty||1) + ")</p>";
+    }
+    if(last.shipping){
+      html += "<p><strong>Shipping:</strong><br>" + (last.shipping.name||'') + "<br>" + (last.shipping.mobile||'') + "<br>" + (last.shipping.address||'') + "</p>";
+    }
+    if(last.payload && last.payload.razorpay_payment_id){
+      html += "<p style='color:green'><strong>Payment Successful</strong><br>Razorpay Payment ID: " + last.payload.razorpay_payment_id + "</p>";
+    } else if(last.upi_redirect){
+      html += "<p style='color:orange'><strong>UPI Payment initiated</strong><br>Please check your UPI app to confirm payment. Order shows as pending.</p>";
+    } else {
+      html += "<p style='color:gray'>Payment pending or not completed.</p>";
+    }
+    content.innerHTML = html;
+  }catch(e){
+    content.innerText = "Unable to read order data.";
+  }
+})();
+</script>
+</body>
+</html>

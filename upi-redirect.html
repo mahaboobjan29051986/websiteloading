@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UPI Redirect</title>
+<style>body{font-family:Arial,system-ui;margin:24px} .box{max-width:680px;margin:auto;background:#fff;padding:18px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06)} a.button{display:inline-block;margin-top:12px;padding:10px 14px;background:#111;color:#fff;border-radius:8px;text-decoration:none}</style>
+</head>
+<body>
+<div class="box">
+  <h2>Redirecting to UPI app...</h2>
+  <p>If your UPI app didn't open automatically, click the button below to open it manually.</p>
+  <p id="info"></p>
+  <a id="open" class="button">Open UPI App</a>
+  <p style="margin-top:12px;color:#555">After completing payment, return to the site to view order status.</p>
+</div>
+
+<script>
+(function(){
+  function qs(){
+    var q = {};
+    location.search.substr(1).split("&").forEach(function(p){
+      if(!p) return;
+      var parts = p.split("=");
+      q[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]||"");
+    });
+    return q;
+  }
+  var params = qs();
+  var pa = params.pa || params.pa; // payee
+  var pn = params.pn || '';
+  var am = params.am || '';
+  var tn = params.tn || '';
+  var cu = params.cu || 'INR';
+  var order = params.order || '';
+
+  var upi = "upi://pay?pa="+encodeURIComponent(pa)+"&pn="+encodeURIComponent(pn)+"&am="+encodeURIComponent(am)+"&cu="+encodeURIComponent(cu)+"&tn="+encodeURIComponent(tn);
+
+  document.getElementById('info').innerText = "Payee: " + pa + " | Amount: " + am;
+  var openBtn = document.getElementById('open');
+  openBtn.href = upi;
+  openBtn.onclick = function(e){
+    e.preventDefault();
+    // try navigation
+    window.location = upi;
+    setTimeout(function(){
+      // fallback: open intent for Android
+      if(navigator.userAgent.toLowerCase().indexOf('android') > -1){
+        // use intent URL to suggest apps
+        var intent = "intent://upi/pay?pa="+encodeURIComponent(pa)+"&pn="+encodeURIComponent(pn)+"&am="+encodeURIComponent(am)+"&cu="+encodeURIComponent(cu)+"&tn="+encodeURIComponent(tn)+"#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end";
+        window.location = intent;
+      }
+    }, 500);
+  };
+
+  // auto open after small delay
+  setTimeout(function(){ try { window.location = upi; } catch(e){} }, 600);
+
+  // Save pending order info to localStorage so success page can show it
+  try{
+    var pending = JSON.parse(localStorage.getItem('lastPayment') || '{}');
+    pending.upi_redirect = {pa: pa, am: am, order: order, ts: new Date().toISOString()};
+    localStorage.setItem('lastPayment', JSON.stringify(pending));
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
