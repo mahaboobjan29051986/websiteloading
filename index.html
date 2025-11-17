@@ -203,7 +203,7 @@ footer{
     </div>
 
     <button class="btn primary" id="buy">Buy Now</button>
-    <button class="btn secondary" id="cart">Add to Cart</button>
+    <!-- Add to Cart button removed -->
   </div>
 </section>
 
@@ -225,18 +225,24 @@ document.querySelectorAll('.shade').forEach(s=>{
     s.classList.add('selected');
   };
 });
+
 let qty=1;
-document.getElementById("inc").onclick=()=>{qty++;document.getElementById("qty").innerText=qty;}
-document.getElementById("dec").onclick=()=>{if(qty>1){qty--;document.getElementById("qty").innerText=qty;}}
+document.getElementById("inc").onclick=()=>{
+  qty++;
+  document.getElementById("qty").innerText=qty;
+}
+document.getElementById("dec").onclick=()=>{
+  if(qty>1){
+    qty--;
+    document.getElementById("qty").innerText=qty;
+  }
+}
 
 document.getElementById("buy").onclick=()=>{
   addToCart();
   window.location="checkout.html";
 };
-document.getElementById("cart").onclick=()=>{
-  addToCart();
-  alert("Added to cart!");
-};
+
 function addToCart(){
   const shade=document.querySelector('.shade.selected').dataset.shade;
   const item={id:'foundation',title:'Maliao Liquid Foundation',price:399,qty:qty,shade};
