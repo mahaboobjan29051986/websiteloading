@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Admin Dashboard</title>
+
+<style>
+body { font-family: Arial; padding:20px; }
+#loginBox { max-width:300px; }
+#dashboard { display:none; }
+table { width:100%; border-collapse: collapse; margin-top:20px; }
+table, th, td { border:1px solid #ccc; padding:8px; }
+th { background:#f2f2f2; }
+button { padding:6px 12px; }
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<script src="firebase-config.js"></script>
+
+</head>
+<body>
+
+<div id="loginBox">
+<h2>Admin Login</h2>
+<p>Email:<br><input id="email" type="email" value="mahaboobjan29051986@gmail.com"></p>
+<p>Password:<br><input id="password" type="password"></p>
+<button onclick="login()">Sign In</button>
+</div>
+
+<div id="dashboard">
+<h2>Orders Dashboard</h2>
+<button onclick="logout()">Logout</button>
+<button onclick="loadOrders()">Refresh Orders</button>
+
+<table id="orderTable">
+<thead>
+<tr>
+<th>Name</th>
+<th>Phone</th>
+<th>Address</th>
+<th>Product</th>
+<th>Amount</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<script>
+
+firebase.auth().onAuthStateChanged(user=>{
+    if(user){
+        document.getElementById('loginBox').style.display="none";
+        document.getElementById('dashboard').style.display="block";
+        loadOrders();
+    }
+});
+
+function login(){
+    var email=document.getElementById('email').value;
+    var pass=document.getElementById('password').value;
+
+    firebase.auth().signInWithEmailAndPassword(email,pass)
+    .catch(e=>alert(e.message));
+}
+
+function logout(){
+    firebase.auth().signOut();
+    location.reload();
+}
+
+function loadOrders(){
+    const tbody=document.querySelector("#orderTable tbody");
+    tbody.innerHTML="Loading...";
+
+    firebase.database().ref("orders").once("value",snap=>{
+        tbody.innerHTML="";
+        snap.forEach(child=>{
+            var o=child.val();
+            var id=child.key;
+
+            var tr=document.createElement("tr");
+            tr.innerHTML=`
+                <td>${o.name||""}</td>
+                <td>${o.phone||""}</td>
+                <td>${o.address||""}</td>
+                <td>${o.product||""}</td>
+                <td>${o.amount||""}</td>
+                <td><button onclick="deleteOrder('${id}')">Delete</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    });
+}
+
+function deleteOrder(id){
+    if(confirm("Delete this order?")){
+        firebase.database().ref("orders/"+id).remove();
+        loadOrders();
+    }
+}
+
+</script>
+
+</body>
+</html>

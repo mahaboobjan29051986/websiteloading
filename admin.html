@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Admin Dashboard - Apta Cosmetics</title>
+
+<style>
+body { font-family: Arial; padding:20px; background:#f5f5f7 }
+.container{max-width:1100px;margin:auto;background:#fff;padding:18px;border-radius:12px}
+#loginBox { max-width:360px; }
+#dashboard { display:none; }
+table { width:100%; border-collapse: collapse; margin-top:20px; font-size:14px;}
+table, th, td { border:1px solid #e2e8f0; padding:8px; vertical-align:top }
+th { background:#f8fafc; text-align:left }
+button { padding:6px 10px; margin-right:6px; border-radius:6px; cursor:pointer }
+.badge {display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-weight:600}
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<script src="firebase-config.js"></script>
+
+</head>
+<body>
+<div class="container">
+<div id="loginBox">
+<h2>Admin Login</h2>
+<p>Email:<br><input id="email" type="email" value="mahaboobjan29051986@gmail.com" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ddd"></p>
+<p>Password:<br><input id="password" type="password" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ddd"></p>
+<button onclick="login()">Sign In</button>
+</div>
+
+<div id="dashboard">
+<h2>Orders Dashboard</h2>
+<button onclick="logout()">Logout</button>
+<button onclick="loadOrders()">Refresh Orders</button>
+<button onclick="exportCSV()">Export CSV</button>
+<input id="filterStatus" placeholder="Filter by status (e.g. paid,pending,shipped)" style="margin-left:12px;padding:6px;border-radius:6px;border:1px solid #ddd">
+<table id="orderTable">
+<thead>
+<tr>
+<th>Order ID</th>
+<th>Date</th>
+<th>Name</th>
+<th>Phone</th>
+<th>Address</th>
+<th>Product / Shade</th>
+<th>Amount</th>
+<th>Status</th>
+<th>Payment ID</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+
+<script>
+firebase.auth().onAuthStateChanged(user=>{
+    if(user){
+        document.getElementById('loginBox').style.display="none";
+        document.getElementById('dashboard').style.display="block";
+        loadOrders();
+    }
+});
+
+function login(){
+    var email=document.getElementById('email').value;
+    var pass=document.getElementById('password').value;
+    firebase.auth().signInWithEmailAndPassword(email,pass)
+    .catch(e=>alert(e.message));
+}
+
+function logout(){
+    firebase.auth().signOut();
+    location.reload();
+}
+
+function loadOrders(){
+    const tbody=document.querySelector("#orderTable tbody");
+    tbody.innerHTML="<tr><td colspan='10'>Loading...</td></tr>";
+    firebase.database().ref("orders").orderByChild("createdAt").once("value",snap=>{
+        tbody.innerHTML="";
+        const rows = [];
+        snap.forEach(child=>{
+            var o=child.val();
+            var id=child.key;
+            rows.push({id,o});
+        });
+        // newest first
+        rows.reverse().forEach(r=>{
+            const o=r.o;
+            const id=r.id;
+            // filter by status input
+            var filter = (document.getElementById('filterStatus').value || '').trim().toLowerCase();
+            if(filter){
+                if(!(o.status || '').toLowerCase().includes(filter)) return;
+            }
+            var tr=document.createElement("tr");
+            tr.innerHTML=`
+                <td style="min-width:140px">${id}</td>
+                <td style="min-width:120px">${o.createdAt || ''}</td>
+                <td>${o.name||''}</td>
+                <td>${o.phone||''}</td>
+                <td style="max-width:240px;white-space:pre-wrap">${o.address||''}</td>
+                <td>${(o.product||'') + (o.shade? (' / ' + o.shade) : '')}</td>
+                <td>₹${o.amount||''}</td>
+                <td>${o.status||''}</td>
+                <td>${(o.payment && o.payment.razorpay_payment_id) || o.payment_id || ''}</td>
+                <td>
+                  <button onclick="markShipped('${id}')">Mark Shipped</button>
+                  <button onclick="refund('${id}')">Refund</button>
+                  <button onclick="deleteOrder('${id}')">Delete</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    });
+}
+
+function deleteOrder(id){
+    if(confirm("Delete this order?")){
+        firebase.database().ref("orders/"+id).remove().then(()=>loadOrders());
+    }
+}
+
+function markShipped(id){
+    var note = prompt("Enter shipment tracking or note (leave blank to set 'shipped'):");
+    var payload = { status: "shipped", shippedAt: new Date().toISOString() };
+    if(note) payload.tracking = note;
+    firebase.database().ref("orders/"+id).update(payload).then(()=>loadOrders());
+}
+
+function refund(id){
+    if(!confirm("This will mark order as refunded. Continue?")) return;
+    firebase.database().ref("orders/"+id).update({ status: "refunded", refundedAt: new Date().toISOString() }).then(()=>loadOrders());
+}
+
+function exportCSV(){
+    firebase.database().ref("orders").once("value",snap=>{
+        const rows = [];
+        snap.forEach(child=>{
+            var o = child.val(); var id = child.key;
+            rows.push({
+                order_id: id,
+                createdAt: o.createdAt || '',
+                name: o.name||'',
+                phone: o.phone||'',
+                address: (o.address||'').replace(/\n/g,' '),
+                product: o.product || '',
+                shade: o.shade || '',
+                amount: o.amount || '',
+                status: o.status || '',
+                payment_id: (o.payment && o.payment.razorpay_payment_id) || ''
+            });
+        });
+        // convert to CSV
+        const keys = Object.keys(rows[0] || {});
+        const lines = [keys.join(',')].concat(rows.map(r => keys.map(k => '"' + (''+ (r[k]||'')).replace(/"/g,'""') + '"').join(',')));
+        const csv = lines.join('\n');
+        const blob = new Blob([csv], {type: 'text/csv'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'orders_export.csv'; document.body.appendChild(a); a.click();
+        setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+    });
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Checkout — Apta Cosmetics</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>body{font-family:Inter,Arial,sans-serif;background:#fdf2f8;margin:0;padding:20px}.container{max-width:520px;margin:30px auto;background:#fff;padding:22px;border-radius:12px;box-shadow:0 6px 24px rgba(11,15,30,0.06)}h2{color:#DB2777;text-align:center}#details{background:#fff0f6;padding:14px;border-radius:10px;margin-bottom:18px}.btn{display:block;width:100%;padding:12px;border-radius:10px;border:none;font-weight:700;cursor:pointer;margin-bottom:12px;color:#fff}#payR{background:#DB2777}#Gpay{background:#4285F4}#ppay{background:#5a31f4}.product-img{width:120px;height:auto;border-radius:10px;margin-right:12px;vertical-align:middle}.item-row{display:flex;align-items:center}input,textarea{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid #ccc;font-size:15px;}label{font-weight:600;font-size:14px;} .note{font-size:13px;color:#6b7280;margin-top:8px}.small{font-size:13px;color:#6b7280;margin-top:6px}.success-link{display:none;text-align:center;margin-top:12px;color:#065f46}</style>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<!-- Firebase JS (needs you to replace config in firebase-config.js) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+</head>
+<body>
+<div class="container">
+  <h2>Checkout</h2>
+  <h3 style="color:#DB2777;margin-top:20px;">Shipping Address</h3>
+  <div id="shipping-box" style="background:#fff0f6;padding:14px;border-radius:10px;margin-bottom:18px;">
+    <label>Full Name</label>
+    <input id="name" type="text" placeholder="Your Name">
+    <label>Mobile Number</label>
+    <input id="mobile" type="tel" placeholder="10-digit number" maxlength="10">
+    <label>Address</label>
+    <textarea id="address" placeholder="House No, Area, Street"></textarea>
+    <label>City</label>
+    <input id="city" type="text" placeholder="City">
+    <label>State</label>
+    <input id="state" type="text" placeholder="State">
+    <label>Pincode</label>
+    <input id="pincode" type="text" maxlength="6" placeholder="Pincode">
+  </div>
+  <div id="details">Loading order...</div>
+  <button id="payR" class="btn">💳 Pay with Razorpay</button>
+  <button id="gpay" class="btn" style="background:#4285F4" id="Gpay">🟦 Google Pay (UPI)</button>
+  <button id="ppay" class="btn">🟪 PhonePe (UPI)</button>
+  <div class="note">Note: For UPI redirection we open your UPI app. After payment you'll be sent to a success page.</div>
+  <a id="view-last" class="success-link" href="success.html">View last payment / order</a>
+</div>
+
+<script>
+// --- cart / item ---
+let cart = [];
+try{ cart = JSON.parse(localStorage.getItem('cart') || '[]'); } catch(e){ cart = []; }
+const item = (cart.length? cart[cart.length-1] : {id:'foundation', title:'Maliao Liquid Foundation', price:399, qty:1, shade:'01 White Ivory'});
+document.getElementById('details').innerHTML = `
+  <div class="item-row">
+    <img src="pic1.jpeg" alt="product" class="product-img">
+    <div>
+      <div><strong>${item.title}</strong></div>
+      <div>Shade: <b>${item.shade}</b></div>
+      <div>Qty: <b>${item.qty}</b></div>
+      <div style="margin-top:6px;font-size:18px;color:#DB2777"><strong>₹${item.price * item.qty}</strong></div>
+    </div>
+  </div>`;
+
+// --- helpers ---
+function genOrderId(){ return 'order_' + Math.random().toString(36).slice(2,11); }
+const clientOrderId = genOrderId();
+function saveLast(payload, goto){
+  localStorage.setItem('lastPayment', JSON.stringify({payload: payload, shipping: JSON.parse(localStorage.getItem('shipping')||'null'), order_id: clientOrderId, item: item}));
+  if(goto) window.location = goto;
+}
+
+function getShippingAddress() {
+    return {
+        name: document.getElementById("name").value.trim(),
+        mobile: document.getElementById("mobile").value.trim(),
+        address: document.getElementById("address").value.trim(),
+        city: document.getElementById("city").value.trim(),
+        state: document.getElementById("state").value.trim(),
+        pincode: document.getElementById("pincode").value.trim()
+    };
+}
+function validateAddress(addr) {
+    if (!addr.name || !addr.mobile || !addr.address || !addr.city || !addr.state || !addr.pincode) {
+        alert("Please fill all shipping address fields.");
+        return false;
+    }
+    if (addr.mobile.length !== 10) {
+        alert("Enter valid 10-digit mobile number.");
+        return false;
+    }
+    if (addr.pincode.length !== 6) {
+        alert("Enter valid 6-digit pincode.");
+        return false;
+    }
+    return true;
+}
+
+// Firebase helper: write order to /orders/{orderId}
+function pushOrderToFirebase(orderObj){
+  try{
+    if(typeof firebase === 'undefined' || !firebase.database){
+      console.warn('Firebase not configured. Skipping remote save.');
+      return Promise.resolve({skipped:true});
+    }
+    return firebase.database().ref('orders/' + orderObj.order_id).set(orderObj).then(()=>({ok:true}));
+  }catch(e){
+    console.error('Firebase push failed', e);
+    return Promise.reject(e);
+  }
+}
+
+// --- Razorpay ---
+function startRazor(){
+  const addr = getShippingAddress();
+  if (!validateAddress(addr)) return;
+  localStorage.setItem("shipping", JSON.stringify(addr));
+
+  var options = {
+      "key": "rzp_test_RgNPzBBvzYUGVL", // replace with live key when ready
+      "amount": item.price * item.qty * 100,
+      "currency": "INR",
+      "name": "mahaboobjan",
+      "description": "Order " + clientOrderId,
+      "image": "pic1.jpeg",
+      "handler": function (res){
+        // save response and go to success page
+        const payload = res || {};
+        const orderObj = {
+          order_id: clientOrderId,
+          item: item,
+          shipping: addr,
+          payment: {
+            method: 'razorpay',
+            razorpay_payment_id: payload.razorpay_payment_id || null,
+            razorpay_order_id: payload.razorpay_order_id || null,
+            razorpay_signature: payload.razorpay_signature || null,
+            timestamp: (new Date()).toISOString()
+          }
+        };
+        // push to firebase (if configured)
+        pushOrderToFirebase(orderObj).catch(()=>{}).finally(()=> saveLast(payload, 'success.html'));
+      },
+      "prefill": {
+          "name": addr.name,
+          "contact": addr.mobile
+      },
+      "notes": {
+          "order_id": clientOrderId
+      },
+      "theme": {
+        "color": "#DB2777"
+      }
+  };
+  new Razorpay(options).open();
+}
+document.getElementById('payR').onclick = startRazor;
+
+// --- UPI / GPay / PhonePe redirection ---
+// UPI ID provided by user (url-encoded)
+const UPI_ID = encodeURIComponent('9384728640@ybl.com');
+const UPI_NAME = encodeURIComponent('mahaboobjan');
+
+function openUpi(amount, note, provider){
+  const addr = getShippingAddress();
+  if (!validateAddress(addr)) return;
+  localStorage.setItem("shipping", JSON.stringify(addr));
+  const orderObj = {
+    order_id: clientOrderId,
+    item: item,
+    shipping: addr,
+    payment: {
+      method: 'upi',
+      provider: provider || 'upi',
+      upi_id: decodeURIComponent(UPI_ID),
+      amount: amount,
+      status: 'pending',
+      timestamp: (new Date()).toISOString()
+    }
+  };
+  // push pending order to firebase so admin can see it immediately
+  pushOrderToFirebase(orderObj).catch(()=>{});
+
+  // pass details to upi-redirect page which will open the upi:// link
+  const params = new URLSearchParams();
+  params.set('pa', UPI_ID);
+  params.set('pn', UPI_NAME);
+  params.set('am', amount);
+  params.set('cu', 'INR');
+  params.set('tn', note || ('Order ' + clientOrderId));
+  params.set('order', clientOrderId);
+  // open redirect page (same origin)
+  window.location = 'upi-redirect.html?' + params.toString();
+}
+
+document.getElementById('gpay').onclick = function(){ openUpi((item.price*item.qty).toString(), 'Payment for order', 'gpay'); };
+document.getElementById('ppay').onclick = function(){ openUpi((item.price*item.qty).toString(), 'Payment for order', 'phonepe'); };
+
+</script>
+<script>
+// Cross-platform payment UI adjustments
+(function(){
+  var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  var isAndroid = /Android/i.test(navigator.userAgent);
+  // hide by default then show as appropriate
+  try {
+    var g = document.getElementById('gpay');
+    var p = document.getElementById('ppay');
+    if (isIOS) {
+      if(g) g.style.display = 'none';
+      if(p) p.style.display = 'none';
+    } else if (isAndroid) {
+      // show both (they are visible by default)
+      if(g) g.style.display = 'block';
+      if(p) p.style.display = 'block';
+    } else {
+      // Desktop: show Razorpay only, hide UPI buttons (they may not work)
+      if(g) g.style.display = 'none';
+      if(p) p.style.display = 'none';
+    }
+  } catch(e){}
+})();
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script>
+firebase.auth().onAuthStateChanged(function(user){
+    if(user && user.email === "mahaboobjan29051986@gmail.com"){
+        document.getElementById("view-last").style.display = "block";
+    }
+});
+</script>
+</body>
+</html>
+
